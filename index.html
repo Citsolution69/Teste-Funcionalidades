@@ -121,6 +121,7 @@
     gap: 18px;
     justify-content: center;
     align-items: center;
+    min-height: 60px; /* Garante que o card não mude de tamanho drasticamente */
   }
 
   .btn {
@@ -164,7 +165,6 @@
     position: fixed;
     z-index: 9999;
     pointer-events: auto;
-    /* transition injected by JS for smooth movement */
   }
 
   /* panic shake when idle */
@@ -387,35 +387,41 @@
 
   const noTexts = [
     '🙅 Não',
-    '😰 Para!',
-    '🏃 Socorro!',
+    '😰 Para Neu!',
+    '🏃 Não me apanhas!',
     '😱 Aiiii!',
     '🫣 Quase!',
     '😤 Nunca!',
-    '🙈 Vai-te!',
+    '🙈 Vem-cá!',
     '💨 Whoosh!',
     '😵 Tontinha!',
-    '🥵 Calor!',
+    '🥵 Nezildaaa!',
   ];
 
   let noX = 0, noY = 0;
   let fleeing = false;
   let fleeCount = 0;
-  let baseSize = 18; // font-size em px
+  let baseSize = 18; 
   let shakeTimer = null;
   let badge = null;
 
   function initNoButton() {
+    // Captura a posição real na tela antes de mudar para fixed
     const rect = btnNo.getBoundingClientRect();
     noX = rect.left;
     noY = rect.top;
 
+    // Define largura e altura fixas para não colapsar
+    btnNo.style.width  = rect.width + 'px';
+    btnNo.style.height = rect.height + 'px';
+    
+    // MOVE PARA O BODY para evitar problemas com transform no pai
+    document.body.appendChild(btnNo);
+
     btnNo.classList.add('fleeing');
     btnNo.style.left   = noX + 'px';
     btnNo.style.top    = noY + 'px';
-    btnNo.style.width  = rect.width + 'px';
-    btnNo.style.height = rect.height + 'px';
-    btnNo.style.transition = '';
+    btnNo.style.transition = 'none';
 
     // badge de contagem
     badge = document.createElement('div');
@@ -430,7 +436,8 @@
     startShakeTimer();
   }
 
-  setTimeout(initNoButton, 150);
+  // Espera a animação do card terminar para pegar a posição correta
+  setTimeout(initNoButton, 800);
 
   function startShakeTimer() {
     clearTimeout(shakeTimer);
@@ -443,7 +450,6 @@
     checkProximity(e.clientX, e.clientY);
   }
   function onTouchMove(e) {
-    e.preventDefault();
     const t = e.touches[0];
     checkProximity(t.clientX, t.clientY);
   }
@@ -457,8 +463,7 @@
     const dy = my - cy;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    // threshold cresce com cada fuga (fica mais nervoso)
-    const threshold = 120 + fleeCount * 15;
+    const threshold = 120 + fleeCount * 10;
     if (dist < threshold && !fleeing) {
       triggerFlee(mx, my);
     }
@@ -478,38 +483,35 @@
     const dy = cy - my;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
-    // fica menor (com medo)
-    const shrink = Math.max(0.55, 1 - fleeCount * 0.04);
-    baseSize = Math.max(11, 18 * shrink);
+    // Reduz tamanho gradualmente
+    const shrink = Math.max(0.6, 1 - fleeCount * 0.03);
+    baseSize = Math.max(12, 18 * shrink);
     btnNo.style.fontSize = baseSize + 'px';
     btnNo.style.padding  = Math.max(8, 15 * shrink) + 'px ' + Math.max(18, 38 * shrink) + 'px';
 
-    // texto muda aleatoriamente
+    // Texto muda sequencialmente
     btnNo.textContent = noTexts[Math.min(fleeCount, noTexts.length - 1)];
 
-    // update badge
+    // Atualiza badge
     badge.textContent = fleeCount;
     badge.style.opacity = '1';
 
-    // velocidade e distância crescem
-    const speed = 260 + fleeCount * 28 + Math.random() * 160;
+    // Calcula nova posição fugindo do mouse
+    const speed = 200 + fleeCount * 20 + Math.random() * 100;
     let angle = Math.atan2(dy, dx);
-    // adiciona desvio lateral aleatório
-    angle += (Math.random() - 0.5) * 1.2;
+    angle += (Math.random() - 0.5) * 1; // Pequeno desvio aleatório
 
     let nx = noX + Math.cos(angle) * speed;
     let ny = noY + Math.sin(angle) * speed;
 
-    // mantém dentro da viewport
-    const margin = 16;
+    // Mantém dentro da tela
+    const margin = 20;
     nx = Math.max(margin, Math.min(window.innerWidth  - bw - margin, nx));
     ny = Math.max(margin, Math.min(window.innerHeight - bh - margin, ny));
 
-    // suor
     spawnSweat(noX + bw / 2, noY);
 
-    // movimento com transição suave mas rápida
-    const transTime = Math.max(0.22, 0.48 - fleeCount * 0.02);
+    const transTime = Math.max(0.2, 0.4 - fleeCount * 0.01);
     btnNo.style.transition = `left ${transTime}s cubic-bezier(0.25,0.46,0.45,0.94), top ${transTime}s cubic-bezier(0.25,0.46,0.45,0.94)`;
 
     noX = nx;
@@ -517,19 +519,15 @@
     btnNo.style.left = nx + 'px';
     btnNo.style.top  = ny + 'px';
 
-    // atualiza posição do badge
     badge.style.transition = `left ${transTime}s, top ${transTime}s`;
     badge.style.left = (nx + bw - 8) + 'px';
     badge.style.top  = (ny - 8) + 'px';
 
-    // unlock
-    const unlock = transTime * 1000 + 80;
     setTimeout(() => {
       fleeing = false;
       startShakeTimer();
-    }, unlock);
+    }, transTime * 1000 + 50);
 
-    // vibrar no mobile (se suportado)
     if (navigator.vibrate) navigator.vibrate(40);
   }
 
@@ -542,43 +540,41 @@
       s.textContent = drops[Math.floor(Math.random() * drops.length)];
       s.style.left = (x + (Math.random() - 0.5) * 60) + 'px';
       s.style.top  = (y + Math.random() * 20) + 'px';
-      s.style.animationDelay = (i * 0.12) + 's';
+      s.style.animationDelay = (i * 0.1) + 's';
       document.body.appendChild(s);
-      setTimeout(() => s.remove(), 1200);
+      setTimeout(() => s.remove(), 1000);
     }
   }
 
-  /* ── YES ── */
   function handleYes() {
     document.getElementById('mainCard').style.display = 'none';
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('touchmove', onTouchMove);
     if (badge) badge.remove();
-    btnNo.remove();
+    if (btnNo) btnNo.remove();
     const sp = document.getElementById('successPage');
     sp.classList.add('active');
     launchConfetti();
     setInterval(launchConfetti, 2800);
   }
 
-  /* ── CONFETTI ── */
   const confColors = ['#ff4d94','#ffb3d9','#ffffff','#ffd700','#ff6347','#ff85c0','#c0f'];
   function launchConfetti() {
     const wrap = document.getElementById('confWrap');
-    for (let i = 0; i < 130; i++) {
+    for (let i = 0; i < 100; i++) {
       const c = document.createElement('div');
       c.className = 'conf';
       c.style.left       = (Math.random() * 100) + 'vw';
       c.style.top        = '-20px';
-      c.style.width      = (6 + Math.random() * 10) + 'px';
-      c.style.height     = (6 + Math.random() * 10) + 'px';
+      c.style.width      = (6 + Math.random() * 8) + 'px';
+      c.style.height     = (6 + Math.random() * 8) + 'px';
       c.style.background = confColors[Math.floor(Math.random() * confColors.length)];
       c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-      const dur = 2.5 + Math.random() * 3;
+      const dur = 2 + Math.random() * 3;
       c.style.animationDuration = dur + 's';
-      c.style.animationDelay   = (Math.random() * 1.8) + 's';
+      c.style.animationDelay   = (Math.random() * 1.5) + 's';
       wrap.appendChild(c);
-      setTimeout(() => c.remove(), (dur + 2.5) * 1000);
+      setTimeout(() => c.remove(), (dur + 2) * 1000);
     }
   }
 </script>
